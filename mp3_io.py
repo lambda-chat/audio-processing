@@ -1,6 +1,4 @@
 from pydub import AudioSegment
-import librosa
-from librosa import display
 import numpy as np
 import matplotlib.pyplot as plt
 import os
