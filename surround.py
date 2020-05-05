@@ -17,13 +17,13 @@ print("channels = {}".format(sound.channels))
 # 本体のデータ
 ys_mono = np.array(sound.get_array_of_samples())
 
-# L, R それぞれコピーを用意
-ys_left = ys_mono
-ys_right = ys_mono
+# LP, HP 用それぞれコピーを用意
+ys_lp = ys_mono
+ys_hp = ys_mono
 
-# L, R を FFT したもの（周波数順にソートされているわけではないことに注意）
-ws_left = fftpack.fft(ys_left)
-ws_right = fftpack.fft(ys_right)
+# FFT したもの（周波数順にソートされているわけではないことに注意）
+ws_lp = fftpack.fft(ys_lp)
+ws_hp = fftpack.fft(ys_hp)
 
 # 周波数（周波数順にソートされているわけではないことに注意）
 freq = fftpack.fftfreq(n = len(ys_mono), d = 1.0 / sound.frame_rate)
@@ -51,26 +51,56 @@ def lin_hp_gain(freq, begin = 20, end = 10000, amount = -42):
 # LR の音量の調整
 for i in range(len(freq)):
     fq = freq[i]
-    left_adj = lin_lp_gain(fq)
-    right_adj = lin_hp_gain(fq)
-    ws_left[i] *= 10 ** (left_adj / 20)
-    ws_right[i] *= 10 ** (right_adj / 20)
+    ws_lp[i] *= 10 ** (lin_lp_gain(fq) / 20)
+    ws_hp[i] *= 10 ** (lin_hp_gain(fq) / 20)
 
 # 逆フーリエ変換
-ys_left = fftpack.ifft(ws_left).astype('int16')
-ys_right = fftpack.ifft(ws_right).astype('int16')
+ys_lp = fftpack.ifft(ws_lp)
+ys_hp = fftpack.ifft(ws_hp)
 
-# right の位相反転
-ys_right = -ys_right
+# HP の位相反転
+ys_hp = -ys_hp
 
-ys_stereo = np.stack([ys_left, ys_right]).flatten('F')
+# LR 供用の出力
+ys_fx = ys_lp + ys_hp
 
+# 出力用に整形 
+data_fx = np.stack([ys_fx.astype('int16'), ys_fx.astype('int16')]).flatten('F').tobytes()
 fx_sound = AudioSegment(
-    data = ys_stereo.astype("int16").tobytes(),
+    data = data_fx,
     sample_width=sound.sample_width,
     frame_rate=sound.frame_rate,
     channels=2)
 
-filename_out = "01_BASS_A_mono2fx.wav"
-filepath_out = os.path.join(work_dir, filename_out)
-fx_sound.export(filepath_out, "wav", bitrate="192k")
+# 一旦出力
+if True:
+    filename_out = "01_BASS_A_mono2fx.wav"
+    filepath_out = os.path.join(work_dir, filename_out)
+    fx_sound.export(filepath_out, "wav", bitrate="192k")
+
+# ys_fx を 20 ms 後ろにずらす（前半 20 ms は無音、後半 20 ms は除去）
+ys_fx_latency = np.pad(ys_fx, (int(sound.frame_rate * 20 / 1000), 0), 'constant')[:len(ys_fx)]
+
+# ys_fx を 5 dB 大きくする
+ys_fx_latency *= 10 ** (5 / 20)
+
+# 左右に設定
+ys_fx_L = ys_fx_latency
+ys_fx_R = -ys_fx_latency
+
+# 元のモノラルと足し上げる
+ys_sur_L = ys_mono + ys_fx_L
+ys_sur_R = ys_mono + ys_fx_R
+
+# 出力用に整形 
+data_sur = np.stack([ys_sur_L.astype('int16'), ys_sur_R.astype('int16')]).flatten('F').tobytes()
+fx_sound = AudioSegment(
+    data = data_sur,
+    sample_width=sound.sample_width,
+    frame_rate=sound.frame_rate,
+    channels=2)
+
+if True:
+    filename_out = "01_BASS_A_surround.wav"
+    filepath_out = os.path.join(work_dir, filename_out)
+    fx_sound.export(filepath_out, "wav", bitrate="192k")
