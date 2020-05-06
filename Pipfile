@@ -9,6 +9,12 @@ pylint = "*"
 [packages]
 numpy = "*"
 pydub = "*"
+matplitlib = "*"
+matplotlib = "*"
+ipython = "*"
+librosa = "*"
+wave = "*"
+pyaudio = "*"
 
 [requires]
 python_version = "3.7"
