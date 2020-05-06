@@ -48,7 +48,7 @@ def lin_hp_gain(freq, begin = 20, end = 10000, amount = -42):
     else:
         return amount * math.log(freq / begin, end - begin)
 
-# LR の音量の調整
+#  LP, HP の音量の調整
 for i in range(len(freq)):
     fq = freq[i]
     ws_lp[i] *= 10 ** (lin_lp_gain(fq) / 20)
@@ -64,8 +64,18 @@ ys_hp = -ys_hp
 # LR 供用の出力
 ys_fx = ys_lp + ys_hp
 
+# 出力用に整形
+if sound.sample_width == 1:
+    stype = 'int8'
+elif sound.sample_width == 2:
+    stype = 'int16'
+elif sound.sample_width == 4:
+    stype = 'int32'
+else:
+    raise Exception("available sample_width is 1 or 2 or 4 as for now")
+
 # 出力用に整形 
-data_fx = np.stack([ys_fx.astype('int16'), ys_fx.astype('int16')]).flatten('F').tobytes()
+data_fx = np.stack([ys_fx.astype(stype), ys_fx.astype(stype)]).flatten('F').tobytes()
 fx_sound = AudioSegment(
     data = data_fx,
     sample_width=sound.sample_width,
@@ -86,7 +96,7 @@ ys_fx_latency *= 10 ** (5 / 20)
 
 # 左右に設定
 ys_fx_L = ys_fx_latency
-ys_fx_R = -ys_fx_latency
+ys_fx_R = -ys_fx_latency # R のみ反転すること
 
 # 元のモノラルと足し上げる
 ys_sur_L = ys_mono + ys_fx_L
