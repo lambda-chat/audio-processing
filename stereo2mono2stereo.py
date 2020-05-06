@@ -86,8 +86,17 @@ def monoral_to_stereo(sound: AudioSegment) -> AudioSegment:
     ys_sur_L = ys_mono + ys_fx_L
     ys_sur_R = ys_mono + ys_fx_R
 
-    # 出力用に整形 
-    data_sur = np.stack([ys_sur_L.astype('int16'), ys_sur_R.astype('int16')]).flatten('F').tobytes()
+    # 出力用に整形
+    if sound.sample_width == 1:
+        stype = 'int8'
+    elif sound.sample_width == 2:
+        stype = 'int16'
+    elif sound.sample_width == 4:
+        stype = 'int32'
+    else:
+        raise Exception("available sample_width is 1 or 2 or 4 as for now")
+
+    data_sur = np.stack([ys_sur_L.astype(stype), ys_sur_R.astype(stype)]).flatten('F').tobytes()
     sound = AudioSegment(
         data = data_sur,
         sample_width=sound.sample_width,
